@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+#Importing pydantic
 class Settings(BaseSettings):
     # Core Application Configuration
     app_name: str = "IntelliFlow"
