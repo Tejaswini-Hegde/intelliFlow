@@ -1,10 +1,17 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-#Importing pydantic
+
 class Settings(BaseSettings):
     # Core Application Configuration
     app_name: str = "IntelliFlow"
     app_version: str = "1.0.0"
     debug: bool = True
+
+    # Database Configuration Fields
+    database_host: str
+    database_port: int
+    database_name: str
+    database_user: str
+    database_password: str
 
     # This configuration directs Pydantic to read environment values from a .env file
     model_config = SettingsConfigDict(
