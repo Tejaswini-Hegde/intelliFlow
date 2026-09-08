@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Form
 from sqlalchemy.orm import Session
 
 from app.config.database import get_db
-from app.schemas.workflow import WorkflowCreate, WorkflowResponse
+from app.schemas.workflow import WorkflowResponse
 from app.repositories.workflow import workflow_repo
+from app.services.pipeline import pipeline_service
 
 router = APIRouter(
     prefix="/workflows",
@@ -11,29 +12,46 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
-def create_new_document_workflow(workflow_in: WorkflowCreate, db: Session = Depends(get_db)):
+def upload_and_process_document(
+        document_id: str = Form(..., description="Unique structural key identifier for this document"),
+        file: UploadFile = Form(..., description="The multi-page PDF or text file payload"),
+        db: Session = Depends(get_db)
+):
     """
-    Step 5 of Plan: Receives validation data and saves metadata to PostgreSQL with status='uploaded'.
+    Executes an end-to-end processing pipeline on a real uploaded document.
+    Saves metadata to PostgreSQL, handles local storage, extracts text, and appends AI layers.
     """
-    try:
-        new_workflow = workflow_repo.create_workflow(db=db, workflow_in=workflow_in)
-        return new_workflow
-    except Exception as e:
+    # 1. Prevent duplicate IDs from crashing the pipeline early
+    existing_record = workflow_repo.get_workflow(db=db, workflow_id=document_id)
+    if existing_record:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to record pipeline: {str(e)}"
+            detail=f"A document pipeline record with ID '{document_id}' already exists."
+        )
+
+    try:
+        # 2. Trigger our orchestrator to handle the full file lifecycle process
+        completed_record = pipeline_service.process_document_pipeline(
+            file=file,
+            custom_id=document_id,
+            db=db
+        )
+        return completed_record
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Pipeline processing failed: {str(e)}"
         )
 
 @router.get("/{workflow_id}", response_model=WorkflowResponse)
 def get_pipeline_results(workflow_id: str, db: Session = Depends(get_db)):
     """
-    Step 10 of Plan: User triggers this GET endpoint to fetch the completed AI results.
+    Step 10 of Plan: Exposes a GET API allowing users to fetch structural AI processing outputs.
     """
-    # Note: We will implement the get_by_id logic in our repository next
     db_workflow = workflow_repo.get_workflow(db=db, workflow_id=workflow_id)
     if not db_workflow:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document workflow record not found"
+            detail=f"Document workflow record '{workflow_id}' not found."
         )
     return db_workflow

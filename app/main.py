@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.config.settings import settings
 from app.services.workflow import workflow_service
+from app.routes.workflow import router as workflow_router
 
 # Initialize the FastAPI application using our configuration settings
 app = FastAPI(
@@ -9,6 +10,9 @@ app = FastAPI(
     version=settings.app_version,
     debug=settings.debug
 )
+
+# ⭐ Wire the endpoints container into the primary application engine
+app.include_router(workflow_router)
 
 @app.get("/")
 def read_root():
