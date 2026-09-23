@@ -1,2 +1,40 @@
+version: "3.8"
+
 services:
-  
+  db:
+    image: postgres:15-alpine
+    container_name: intelliflow_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: teju123
+      POSTGRES_DB: Tejaswini_DB
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - intelliflow_network
+
+  web:
+    build: .
+    container_name: intelliflow_api
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - ./storage/uploads:/app/storage/uploads
+    depends_on:
+      - db
+    networks:
+      - intelliflow_network
+
+volumes:
+  postgres_data:
+
+networks:
+  intelliflow_network:
+    driver: bridge
